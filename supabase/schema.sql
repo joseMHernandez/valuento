@@ -14,8 +14,14 @@ create table if not exists public.leads (
 -- Helpful for de-duping / lookups by email.
 create index if not exists leads_email_idx on public.leads (email);
 
--- Enable Row Level Security. The app writes via the SERVICE ROLE key, which
--- bypasses RLS, so no insert policy is needed for the form to work. Keeping RLS
--- on (with no public policies) means the anon/public key cannot read or write
--- this table — leads stay private.
+-- Enable Row Level Security. The app writes with the PUBLISHABLE (anon) key,
+-- so we add an insert-only policy below. There is intentionally NO select /
+-- update / delete policy, meaning that key can write a lead but can never read
+-- back, change, or delete any rows — leads stay private.
 alter table public.leads enable row level security;
+
+create policy "anon can insert leads"
+  on public.leads
+  for insert
+  to anon
+  with check (true);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSupabaseClient } from "@/lib/supabase";
 import {
   BUDGET_VALUES,
   REVENUE_VALUES,
@@ -40,11 +40,13 @@ export async function POST(req: Request) {
   // Wrapped so that any unexpected throw (e.g. Supabase not yet configured)
   // still returns JSON the client can parse, instead of an opaque 500 page.
   try {
-    const { data, error } = await getSupabaseAdmin()
+    // No `.select()` here on purpose: returning the inserted row needs SELECT
+    // access, but the RLS policy is insert-only so the publishable key can't
+    // read leads back. We already have the submitted values, so there's
+    // nothing to read.
+    const { error } = await getSupabaseClient()
       .from("leads")
-      .insert({ name, email, monthly_revenue, scaling_budget })
-      .select()
-      .single();
+      .insert({ name, email, monthly_revenue, scaling_budget });
 
     if (error) {
       console.error("[lead] supabase insert failed:", error);
@@ -58,7 +60,7 @@ export async function POST(req: Request) {
     // The lead is already safely stored above, so a CRM failure must never
     // break the user's submission — we fire it best-effort and only log.
     try {
-      await forwardToCrm(data);
+      await forwardToCrm({ name, email, monthly_revenue, scaling_budget });
     } catch (err) {
       console.error("[lead] CRM forward failed (lead still saved in Supabase):", err);
     }

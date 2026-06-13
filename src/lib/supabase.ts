@@ -1,31 +1,31 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Server-only Supabase client (lazy).
+ * Server-side Supabase client (lazy).
  *
- * Uses the SERVICE ROLE key, which bypasses Row Level Security. This module
- * must NEVER be imported into a client component — keep it behind API routes
- * (e.g. src/app/api/lead/route.ts) only. The keys live in .env.local and are
- * never shipped to the browser.
+ * Uses the PUBLISHABLE (anon) key. Even though it's only ever used here on the
+ * server, the publishable key is safe by design: the `leads` table has RLS
+ * enabled with an insert-only policy for the anon role, so this key can write a
+ * lead but cannot read, update, or delete any rows.
  *
- * It's created lazily (on first request) rather than at import time so that
+ * Created lazily (on first request) rather than at import time so that
  * `next build` doesn't fail when env vars aren't present in the build env.
  */
 let client: SupabaseClient | null = null;
 
-export function getSupabaseAdmin(): SupabaseClient {
+export function getSupabaseClient(): SupabaseClient {
   if (client) return client;
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !publishableKey) {
     throw new Error(
-      "Missing Supabase env vars. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local"
+      "Missing Supabase env vars. Set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY in .env.local"
     );
   }
 
-  client = createClient(supabaseUrl, serviceRoleKey, {
+  client = createClient(supabaseUrl, publishableKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return client;
